@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 6467777667407629719}
   - component: {fileID: 9167899382447879942}
   - component: {fileID: 7175005962530267640}
-  - component: {fileID: 5845936836304044465}
+  - component: {fileID: 1151308352277230134}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -139,16 +139,23 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 1, y: 1}
   m_EdgeRadius: 0
---- !u!114 &5845936836304044465
+--- !u!114 &1151308352277230134
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8762545603821828578}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c0d07d2fd074ebf488b5227f9e65d8ec, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController
   currentHoldings: []
+  handAnchor: {fileID: 0}
+  interactionRadius: 1.25
+  interactionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  tapThresholdSeconds: 0.2
+  verboseLogs: 0
