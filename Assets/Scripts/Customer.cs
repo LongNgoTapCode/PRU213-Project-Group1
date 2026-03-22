@@ -180,7 +180,7 @@ public class Customer : MonoBehaviour {
             OrderManager.Instance?.CompleteOrder(this);
             AudioFeedbackManager.Instance?.PlayOrderCompleteChime();
             Debug.Log("Served " + displayOrderName + " Successfully! +" + rewardCoins + " coins");
-            GameManager.Instance?.AddScore(rewardCoins);
+            GameManager.Instance?.AddCoins(rewardCoins);
             StartLeaving();
             return true;
         } else {
@@ -292,4 +292,36 @@ public class Customer : MonoBehaviour {
         LeftCafe?.Invoke(this);
         Destroy(gameObject);
     }
+
+    /// <summary>
+    /// Returns the required ingredients for this customer's order
+    /// </summary>
+    public List<string> GetRequiredIngredients() {
+        return requiredIngredients;
+    }
+
+    /// <summary>
+    /// Mark customer as satisfied and make them leave happy
+    /// </summary>
+    public void Satisfy() {
+        if (orderResolved) {
+            return;
+        }
+
+        orderResolved = true;
+        AudioFeedbackManager.Instance?.PlayOrderCompleteChime();
+        StartLeaving();
+    }
+
+    /// <summary>
+    /// Make customer leave (used when wrong order is served)
+    /// </summary>
+    public void Leave() {
+        LeaveAngry();
+    }
+
+    /// <summary>
+    /// Expose max patience as a public property
+    /// </summary>
+    public float MaxPatience => maxPatience;
 }

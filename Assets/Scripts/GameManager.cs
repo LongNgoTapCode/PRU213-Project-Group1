@@ -5,8 +5,10 @@ public class GameManager : MonoBehaviour {
     public static GameManager Instance;
 
     public int score = 0;
+    public int coins = 0; // Tiền tệ chính cho upgrade
     public int reputation = 5; // Bắt đầu với 5 mạng
     public TextMeshProUGUI scoreText;
+    public TextMeshProUGUI coinsText;
     public TextMeshProUGUI reputationText;
     public TextMeshProUGUI holdingsText; // Hiển thị nguyên liệu đang cầm
     public GameObject gameOverPanel;
@@ -65,6 +67,22 @@ public class GameManager : MonoBehaviour {
         UpdateUI();
     }
 
+    public void AddCoins(int amount) {
+        coins += Mathf.Max(0, amount);
+        Debug.Log("Coins: " + coins);
+        UpdateUI();
+    }
+
+    public bool SpendCoins(int amount) {
+        if (coins < amount) {
+            return false;
+        }
+
+        coins -= amount;
+        UpdateUI();
+        return true;
+    }
+
     public void LoseReputation() {
         reputation--;
         Debug.Log("Reputation: " + reputation);
@@ -78,6 +96,8 @@ public class GameManager : MonoBehaviour {
     void UpdateUI() {
         if (scoreText != null)
             scoreText.text = "Score: " + score;
+        if (coinsText != null)
+            coinsText.text = "Coins: " + coins;
         if (reputationText != null)
             reputationText.text = "Rep: " + reputation + " / 5";
     }
@@ -122,7 +142,7 @@ public class GameManager : MonoBehaviour {
 
         runSummaryText.text =
             "Run Result\n" +
-            "Score: " + score + "\n" +
+            "Coins: " + coins + "\n" +
             "Completed: " + completed + "\n" +
             "Failed: " + failed + "\n" +
             "Accuracy: " + accuracy.ToString("F0") + "%\n" +

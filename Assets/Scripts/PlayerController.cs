@@ -27,6 +27,7 @@ public class PlayerController : MonoBehaviour {
     [SerializeField] private bool verboseLogs;
 
     private PickupItem heldItem;
+    private Cup heldCup; // Cập nhật: thêm cup support
     private float eHoldTimer;
     private bool isHoldingE;
     private bool attemptedRepair;
@@ -73,6 +74,13 @@ public class PlayerController : MonoBehaviour {
         if (heldItem != null) {
             Destroy(heldItem.gameObject);
             heldItem = null;
+        }
+
+        if (heldCup != null) {
+            heldCup.Clear();
+            Vector3 dropPosition = transform.position + transform.right * 0.5f;
+            heldCup.DropToWorld(dropPosition);
+            heldCup = null;
         }
 
         currentHoldings.Clear();
@@ -156,6 +164,17 @@ public class PlayerController : MonoBehaviour {
                     }
                     bool success = false;
 
+                    // Thử serve cup trước
+                    if (heldCup != null) {
+                        success = CupServeValidator.Instance?.TryServeCupToCustomer(heldCup, customer) ?? false;
+                        if (success) {
+                            Destroy(heldCup.gameObject);
+                            heldCup = null;
+                        }
+                        return;
+                    }
+
+                    // Rồi thử serve từ heldItem (cup cũ)
                     if (heldItem != null) {
                         success = customer.ReceiveCup(heldItem);
                         if (success) {
@@ -163,6 +182,7 @@ public class PlayerController : MonoBehaviour {
                             heldItem = null;
                         }
                     } else {
+                        // Hoặc serve từ holdings (cách cũ)
                         success = customer.ReceiveDrink(currentHoldings);
                         if (success) currentHoldings.Clear();
                     }
@@ -274,6 +294,13 @@ public class PlayerController : MonoBehaviour {
     }
 
     private void HandlePickupDrop() {
+        // Try to pick up cup first
+        Cup nearestCup = FindNearestCup();
+        if (nearestCup != null && heldCup == null) {
+            TryPickupCup(nearestCup);
+            return;
+        }
+
         if (heldItem == null) {
             PickupItem nearestItem = FindNearestPickupItem();
             if (nearestItem != null) {
@@ -339,6 +366,28 @@ public class PlayerController : MonoBehaviour {
         return nearest;
     }
 
+    private Cup FindNearestCup() {
+        int hitCount = CollectNearbyHits();
+
+        float closestDistance = float.MaxValue;
+        Cup nearest = null;
+
+        for (int i = 0; i < hitCount; i++) {
+            Cup cup = nearbyHitsBuffer[i].GetComponentInParent<Cup>();
+            if (cup == null || cup.IsHeld) {
+                continue;
+            }
+
+            float distance = Vector2.Distance(transform.position, cup.transform.position);
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                nearest = cup;
+            }
+        }
+
+        return nearest;
+    }
+
     private Workstation FindNearestRepairableWorkstation() {
         int hitCount = CollectNearbyHits();
 
@@ -389,5 +438,74 @@ public class PlayerController : MonoBehaviour {
     void OnDrawGizmosSelected() {
         Gizmos.color = Color.white;
         Gizmos.DrawWireSphere(transform.position, interactionRadius);
+    }
+
+    /// <summary>
+    /// Try to pick up a cup and attach it to hand
+    /// </summary>
+    public bool TryPickupCup(Cup cup) {
+        if (cup == null || heldCup != null || handAnchor == null) {
+            return false;
+        }
+
+        heldCup = cup;
+        heldCup.AttachToHand(handAnchor);
+        return true;
+    }
+
+    /// <summary>
+    /// Release the held cup
+    /// </summary>
+    public Cup ReleaseHeldCup() {
+        Cup cup = heldCup;
+        heldCup = null;
+        return cup;
+    }
+
+    /// <summary>
+    /// Get the currently held cup
+    /// </summary>
+    public Cup GetHeldCup() {
+        return heldCup;
+    }
+
+    /// <summary>
+    /// Pour an ingredient from holdings into the held cup
+    /// </summary>
+    public bool TryPourIntoCup(int ingredientIndex) {
+        if (heldCup == null || ingredientIndex < 0 || ingredientIndex >= currentHoldings.Count) {
+            return false;
+        }
+
+        string ingredient = currentHoldings[ingredientIndex];
+        if (heldCup.TryAddIngredient(ingredient)) {
+            currentHoldings.RemoveAt(ingredientIndex);
+            Debug.Log($"Poured {ingredient} into cup. Cup contents: {string.Join(", ", heldCup.Contents)}");
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Pour all holdings into the held cup
+    /// </summary>
+    public bool TryPourAllIntoCup() {
+        if (heldCup == null || currentHoldings.Count == 0) {
+            return false;
+        }
+
+        int poured = 0;
+        for (int i = currentHoldings.Count - 1; i >= 0; i--) {
+            if (heldCup.TryAddIngredient(currentHoldings[i])) {
+                currentHoldings.RemoveAt(i);
+                poured++;
+            } else {
+                break; // Cup is full
+            }
+        }
+
+        Debug.Log($"Poured {poured} ingredients into cup. Cup contents: {string.Join(", ", heldCup.Contents)}");
+        return poured > 0;
     }
 }

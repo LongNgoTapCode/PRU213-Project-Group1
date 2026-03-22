@@ -96,11 +96,10 @@ public class UpgradeManager : MonoBehaviour {
     }
 
     private bool Spend(int amount) {
-        if (GameManager.Instance == null || GameManager.Instance.score < amount) {
+        if (GameManager.Instance == null) {
             return false;
         }
 
-        GameManager.Instance.AddScore(-amount);
-        return true;
+        return GameManager.Instance.SpendCoins(amount);
     }
 }
