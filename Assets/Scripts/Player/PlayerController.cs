@@ -123,6 +123,8 @@ public class PlayerController : MonoBehaviour {
 
         // Click trái: tương tác với Workstation hoặc Customer
         if (Mouse.current.leftButton.wasPressedThisFrame) {
+            AudioManager.instance?.OnClickSound();
+
             Vector2 mousePos = Mouse.current.position.ReadValue();
             if (cachedMainCamera == null) {
                 cachedMainCamera = Camera.main;

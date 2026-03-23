@@ -10,10 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c900943958c77cc43a13174bfc53eea9, type: 3}
-  m_Name: Espresso
+  m_Name: Hot Coffee
   m_EditorClassIdentifier: Assembly-CSharp::DrinkData
-  drinkName: Espresso
+  drinkName: 
   ingredients:
   - Espresso
-  basePrice: 10
-  icon: {fileID: -1771866121167276815, guid: 60937bb0588b63f47bf47cc1aeff0a05, type: 3}
+  - Hot water
+  basePrice: 0
+  icon: {fileID: 0}

@@ -16,6 +16,6 @@ MonoBehaviour:
   ingredients:
   - Espresso
   - Milk
-  - Sugar
-  basePrice: 30
-  icon: {fileID: 0}
+  - Foam
+  basePrice: 18
+  icon: {fileID: 756911166660455246, guid: 60937bb0588b63f47bf47cc1aeff0a05, type: 3}

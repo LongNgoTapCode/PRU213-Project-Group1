@@ -16,5 +16,5 @@ MonoBehaviour:
   ingredients:
   - Espresso
   - Milk
-  basePrice: 20
-  icon: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
+  basePrice: 15
+  icon: {fileID: 2091829175261615561, guid: 60937bb0588b63f47bf47cc1aeff0a05, type: 3}
