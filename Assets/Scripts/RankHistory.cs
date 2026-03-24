@@ -1,19 +1,18 @@
 using UnityEngine;
 
+/// <summary>
+/// Attach to any GameObject to provide rank history save functionality.
+/// Call SaveCurrentRun() to persist a game session result.
+/// </summary>
 public class RankHistory : MonoBehaviour
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-   void Start()
-{
-    LocalScoreStorage.SaveRun(100, 50);
-    LocalScoreStorage.SaveRun(200, 40);
-    LocalScoreStorage.SaveRun(150, 60);
-}
-
-
-    // Update is called once per frame
-    void Update()
+    /// <summary>
+    /// Save a completed run to persistent storage.
+    /// Called automatically by GameManager on GameOver.
+    /// </summary>
+    public static void SaveCurrentRun(int finalScore, int timeElapsedSeconds)
     {
-        
+        LocalScoreStorage.SaveRun(finalScore, timeElapsedSeconds);
+        Debug.Log($"[RankHistory] Run saved — Score: {finalScore}, Time: {timeElapsedSeconds}s");
     }
 }

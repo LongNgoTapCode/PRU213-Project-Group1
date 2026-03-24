@@ -13,20 +13,18 @@ public class Customer : MonoBehaviour {
     }
 
     public DrinkData order;
-    [Header("Optional Data-Driven Recipe")]
-    [SerializeField] private RecipeBook recipeBook;
-    [SerializeField] private string recipeName;
-    [SerializeField] private int rewardFromRecipe = 20;
 
     public float maxPatience = 20f;
     private float currentPatience;
     private List<string> requiredIngredients = new List<string>();
     private string displayOrderName = "Unknown";
+    private Sprite displayOrderIcon;
     private int rewardCoins;
 
     private SpriteRenderer barBackground;
     private SpriteRenderer barFill;
     private TextMesh orderLabel;
+    private SpriteRenderer orderIcon;
     private float barWidth = 1.2f;
     private float barHeight = 0.15f;
     private bool orderResolved;
@@ -39,11 +37,20 @@ public class Customer : MonoBehaviour {
     [SerializeField] private float moveSpeed = 2.2f;
     [SerializeField] private float stopDistance = 0.05f;
 
+    [Header("Animation")]
+    [SerializeField] private Animator animator;
+    [SerializeField] private string walkingParam = "isWalking";
+    [SerializeField] private string inputXParam = "InputX";
+    [SerializeField] private string inputYParam = "InputY";
+    [SerializeField] private string lastInputXParam = "LastInputX";
+    [SerializeField] private string lastInputYParam = "LastInputY";
+
     public int OrderId { get; private set; }
     public float RemainingTime => Mathf.Max(0f, currentPatience);
     public float RemainingRatio => maxPatience <= 0f ? 0f : Mathf.Clamp01(currentPatience / maxPatience);
     public string DisplayOrderName => displayOrderName;
     public event Action<Customer> LeftCafe;
+    private Vector2 lastMoveDirection = Vector2.down;
 
     void Awake() {
         OrderId = nextOrderId++;
@@ -57,6 +64,10 @@ public class Customer : MonoBehaviour {
     }
 
     void Start() {
+        if (animator == null) {
+            animator = GetComponent<Animator>();
+        }
+
         if (UpgradeManager.Instance != null) {
             maxPatience *= UpgradeManager.Instance.CustomerPatienceMultiplier;
         }
@@ -64,6 +75,7 @@ public class Customer : MonoBehaviour {
         currentPatience = maxPatience;
         ResolveOrderData();
         CreatePatienceBar();
+        CreateOrderIcon();
         CreateOrderLabel();
         OrderManager.Instance?.RegisterOrder(this);
 
@@ -77,6 +89,7 @@ public class Customer : MonoBehaviour {
 
         if (order != null) {
             displayOrderName = order.drinkName;
+            displayOrderIcon = order.icon;
             rewardCoins = Mathf.RoundToInt(order.basePrice);
             if (order.ingredients != null) {
                 requiredIngredients.AddRange(order.ingredients);
@@ -84,18 +97,25 @@ public class Customer : MonoBehaviour {
             return;
         }
 
-        RecipeDefinition fromRecipeBook;
-        if (recipeBook != null && recipeBook.TryGetRecipe(recipeName, out fromRecipeBook)) {
-            displayOrderName = fromRecipeBook.drinkName;
-            rewardCoins = rewardFromRecipe;
-            if (fromRecipeBook.ingredients != null) {
-                requiredIngredients.AddRange(fromRecipeBook.ingredients);
-            }
+        displayOrderName = "Unknown";
+        displayOrderIcon = null;
+        rewardCoins = 0;
+    }
+
+    void CreateOrderIcon() {
+        if (displayOrderIcon == null) {
             return;
         }
 
-        displayOrderName = "Unknown";
-        rewardCoins = 0;
+        GameObject iconObj = new GameObject("OrderIcon");
+        iconObj.transform.SetParent(transform);
+        iconObj.transform.localPosition = new Vector3(0, 1.45f, 0);
+
+        orderIcon = iconObj.AddComponent<SpriteRenderer>();
+        orderIcon.sprite = displayOrderIcon;
+        orderIcon.color = Color.white;
+        orderIcon.sortingOrder = 7;
+        iconObj.transform.localScale = Vector3.one * 0.5f;
     }
 
     void CreatePatienceBar() {
@@ -180,6 +200,7 @@ public class Customer : MonoBehaviour {
             OrderManager.Instance?.CompleteOrder(this);
             AudioFeedbackManager.Instance?.PlayOrderCompleteChime();
             Debug.Log("Served " + displayOrderName + " Successfully! +" + rewardCoins + " coins");
+            GameManager.Instance?.AddScore(10);
             GameManager.Instance?.AddCoins(rewardCoins);
             StartLeaving();
             return true;
@@ -250,19 +271,50 @@ public class Customer : MonoBehaviour {
             if (aiState == CustomerAiState.Entering) {
                 aiState = CustomerAiState.Waiting;
             }
+            UpdateAnimatorState(Vector2.zero, false);
             return;
+        }
+
+        Vector2 currentPos = transform.position;
+        Vector2 targetPos = target.position;
+        Vector2 toTarget = targetPos - currentPos;
+
+        if (toTarget.sqrMagnitude > 0.0001f) {
+            lastMoveDirection = toTarget.normalized;
         }
 
         Vector3 nextPosition = Vector3.MoveTowards(transform.position, target.position, moveSpeed * Time.deltaTime);
         transform.position = nextPosition;
 
-        if (Vector3.Distance(transform.position, target.position) <= stopDistance) {
+        bool isWalking = Vector3.Distance(transform.position, target.position) > stopDistance;
+        UpdateAnimatorState(lastMoveDirection, isWalking);
+
+        if (!isWalking) {
             if (aiState == CustomerAiState.Entering) {
                 aiState = CustomerAiState.Waiting;
             } else if (aiState == CustomerAiState.Leaving) {
                 FinalizeLeaving();
             }
         }
+    }
+
+    private void UpdateAnimatorState(Vector2 direction, bool isWalking) {
+        if (animator == null) {
+            return;
+        }
+
+        animator.SetBool(walkingParam, isWalking);
+
+        if (!isWalking) {
+            animator.SetFloat(lastInputXParam, lastMoveDirection.x);
+            animator.SetFloat(lastInputYParam, lastMoveDirection.y);
+            animator.SetFloat(inputXParam, 0f);
+            animator.SetFloat(inputYParam, 0f);
+            return;
+        }
+
+        animator.SetFloat(inputXParam, direction.x);
+        animator.SetFloat(inputYParam, direction.y);
     }
 
     private void StartLeaving() {
@@ -276,6 +328,10 @@ public class Customer : MonoBehaviour {
 
         if (orderLabel != null) {
             orderLabel.gameObject.SetActive(false);
+        }
+
+        if (orderIcon != null) {
+            orderIcon.gameObject.SetActive(false);
         }
 
         if (exitTarget == null) {

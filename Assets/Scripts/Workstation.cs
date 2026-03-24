@@ -166,23 +166,20 @@ public class Workstation : MonoBehaviour {
     }
 
     void CollectResult() {
-        if (spawnPickupItem && outputPrefab != null) {
-            Transform targetSpawn = outputSpawnPoint != null ? outputSpawnPoint : transform;
-            PickupItem spawned = Instantiate(outputPrefab, targetSpawn.position, Quaternion.identity);
-            spawned.SetIngredientName(ingredientOutput);
-
-            IngredientStateMachine stateMachine = spawned.GetComponent<IngredientStateMachine>();
-            if (stateMachine != null) {
-                stateMachine.SetState(IngredientState.Processed);
-            }
-
-            if (PlayerController.Instance != null && !PlayerController.Instance.HasHeldItem()) {
-                PlayerController.Instance.TryPickupItem(spawned);
-            }
-        } else if (PlayerController.Instance != null) {
-            PlayerController.Instance.AddIngredient(ingredientOutput);
-        } else {
+        if (PlayerController.Instance == null) {
             Debug.LogWarning("PlayerController not found.");
+            return;
+        }
+
+        if (!PlayerController.Instance.HasHeldCup()) {
+            Debug.Log("Need a cup to collect " + ingredientOutput + ".");
+            return;
+        }
+
+        bool added = PlayerController.Instance.TryAddIngredientToHeldCup(ingredientOutput);
+        if (!added) {
+            Debug.Log("Cannot collect " + ingredientOutput + ": cup is full.");
+            return;
         }
 
         isReady = false;

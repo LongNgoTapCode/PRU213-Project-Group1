@@ -30,7 +30,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.5, y: 0.5, z: 1}
+  m_LocalScale: {x: 0.25, y: 0.2, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -95,6 +95,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Cup
   cupData: {fileID: 11400000, guid: ebfd187873d665f4a99035a22b15b6f2, type: 2}
   spriteRenderer: {fileID: 0}
+  knownRecipes:
+  - {fileID: 11400000, guid: 32dca4f7a133769418ea25931556885d, type: 2}
+  - {fileID: 11400000, guid: 459825120358a1d4f9824cebd7e2b673, type: 2}
+  - {fileID: 11400000, guid: 1e5c9a94c34aad646b444e6b0c25094d, type: 2}
+  - {fileID: 11400000, guid: aa3f95f13179a92408e41dc4b8234df1, type: 2}
+  - {fileID: 11400000, guid: e08c9c2cef733a94299916ab04efb228, type: 2}
+  requireExactIngredientOrder: 1
 --- !u!50 &5522343685254934302
 Rigidbody2D:
   serializedVersion: 5

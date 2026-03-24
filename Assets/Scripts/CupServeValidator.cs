@@ -34,6 +34,7 @@ public class CupServeValidator : MonoBehaviour {
         if (isCorrect) {
             // Award coins to player
             int reward = GetReward(customer);
+            GameManager.Instance?.AddScore(10);
             GameManager.Instance?.AddCoins(reward);
             Debug.Log($"CORRECT! Customer {customer.DisplayOrderName} served. Reward: {reward} coins");
             

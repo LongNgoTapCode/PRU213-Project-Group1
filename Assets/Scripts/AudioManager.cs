@@ -5,6 +5,10 @@ public class AudioManager : MonoBehaviour
 {
     public static AudioManager instance;
 
+    private const string MusicVolumeKey = "audio.musicVolume";
+    private const string SfxVolumeKey = "audio.sfxVolume";
+    private const float DefaultVolume = 1f;
+
     [Header("---- Audio Sources ----")]
     public AudioSource musicSource;
     public AudioSource sfxSource;
@@ -31,7 +35,16 @@ public class AudioManager : MonoBehaviour
 
     private void Start()
     {
+        LoadSavedVolumes();
         PlayBackgroundMusic();
+    }
+
+    private void LoadSavedVolumes()
+    {
+        float music = PlayerPrefs.GetFloat(MusicVolumeKey, DefaultVolume);
+        float sfx = PlayerPrefs.GetFloat(SfxVolumeKey, DefaultVolume);
+        SetMusicVolume(music);
+        SetSFXVolume(sfx);
     }
 
     public void PlayBackgroundMusic()
@@ -72,17 +85,43 @@ public class AudioManager : MonoBehaviour
     // Thêm hàm này vào cuối class AudioManager
     public void SetMusicVolume(float volume)
     {
+        volume = Mathf.Clamp01(volume);
         if (musicSource != null)
         {
             musicSource.volume = volume;
         }
+
+        PlayerPrefs.SetFloat(MusicVolumeKey, volume);
     }
 
     public void SetSFXVolume(float volume)
     {
+        volume = Mathf.Clamp01(volume);
         if (sfxSource != null)
         {
             sfxSource.volume = volume;
         }
+
+        PlayerPrefs.SetFloat(SfxVolumeKey, volume);
+    }
+
+    public float GetMusicVolume()
+    {
+        if (musicSource != null)
+        {
+            return musicSource.volume;
+        }
+
+        return PlayerPrefs.GetFloat(MusicVolumeKey, DefaultVolume);
+    }
+
+    public float GetSFXVolume()
+    {
+        if (sfxSource != null)
+        {
+            return sfxSource.volume;
+        }
+
+        return PlayerPrefs.GetFloat(SfxVolumeKey, DefaultVolume);
     }
 }

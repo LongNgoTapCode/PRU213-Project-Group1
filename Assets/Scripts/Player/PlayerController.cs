@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System.Collections.Generic;
+using TMPro;
 
 public class PlayerController : MonoBehaviour {
     public static PlayerController Instance;
@@ -10,14 +11,10 @@ public class PlayerController : MonoBehaviour {
     [SerializeField] private float moveSpeed = 4f;
     [SerializeField] private bool usePhysicsMovement = true;
 
-    [Header("Animation")]
-    [SerializeField] private Animator characterAnimator;
-    [SerializeField] private string moveXParam = "MoveX";
-    [SerializeField] private string moveYParam = "MoveY";
-    [SerializeField] private string lastMoveXParam = "LastMoveX";
-    [SerializeField] private string lastMoveYParam = "LastMoveY";
-    [SerializeField] private string speedParam = "Speed";
-    [SerializeField] private string isMovingParam = "IsMoving";
+    [Header("Input")]
+    [SerializeField] private InputActionAsset inputActionsAsset;
+    [SerializeField] private string actionMapName = "Player";
+    [SerializeField] private string moveActionName = "Move";
 
     [Header("Pickup & Drop")]
     [SerializeField] private Transform handAnchor;
@@ -25,6 +22,8 @@ public class PlayerController : MonoBehaviour {
     [SerializeField] private LayerMask interactionMask = ~0;
     [SerializeField] private float tapThresholdSeconds = 0.2f;
     [SerializeField] private bool verboseLogs;
+    [Header("Interaction UI")]
+    [SerializeField] private TextMeshProUGUI workstationHintText;
 
     private PickupItem heldItem;
     private Cup heldCup; // Cập nhật: thêm cup support
@@ -32,33 +31,35 @@ public class PlayerController : MonoBehaviour {
     private bool isHoldingE;
     private bool attemptedRepair;
     private Workstation repairTarget;
+    private Workstation nearbyWorkstation;
+    private string lastWorkstationHint = string.Empty;
     private readonly Collider2D[] nearbyHitsBuffer = new Collider2D[48];
     private readonly Collider2D[] clickHitsBuffer = new Collider2D[32];
     private Camera cachedMainCamera;
     private Rigidbody2D body;
     private Vector2 moveInput;
-    private Vector2 lastMoveDirection = Vector2.down;
     private ContactFilter2D interactionFilter;
-    private int moveXHash;
-    private int moveYHash;
-    private int lastMoveXHash;
-    private int lastMoveYHash;
-    private int speedHash;
-    private int isMovingHash;
+    private Animator animator;
+    private InputAction moveAction;
+
 
     void Awake() {
         Instance = this;
-        body = GetComponent<Rigidbody2D>();
-        if (characterAnimator == null) {
-            characterAnimator = GetComponentInChildren<Animator>();
-        }
-
-        CacheAnimatorHashes();
         ConfigureInteractionFilter();
+        body = GetComponent<Rigidbody2D>();
     }
 
     void Start() {
         cachedMainCamera = Camera.main;
+        animator = GetComponent<Animator>();
+    }
+
+    void OnEnable() {
+        BindMoveAction();
+    }
+
+    void OnDisable() {
+        UnbindMoveAction();
     }
 
     public void AddIngredient(string ing) {
@@ -114,12 +115,13 @@ public class PlayerController : MonoBehaviour {
     void Update() {
         if (Mouse.current == null) return;
 
-        ReadMovementInput();
-        UpdateAnimationParameters();
-
         if (Keyboard.current != null) {
             HandleEInteraction();
         }
+
+        TryAutoPickupNearbyCup();
+
+        UpdateNearbyWorkstationHint();
 
         // Click trái: tương tác với Workstation hoặc Customer
         if (Mouse.current.leftButton.wasPressedThisFrame) {
@@ -148,16 +150,6 @@ public class PlayerController : MonoBehaviour {
                     Debug.Log("  Hit: " + col.gameObject.name);
                 }
 
-                // Thử tương tác Workstation
-                Workstation ws = col.GetComponent<Workstation>();
-                if (ws != null) {
-                    if (verboseLogs) {
-                        Debug.Log("  -> Workstation clicked: " + ws.ingredientOutput);
-                    }
-                    ws.HandleClick();
-                    return;
-                }
-
                 // Thử tương tác Customer
                 Customer customer = col.GetComponent<Customer>();
                 if (customer != null) {
@@ -168,7 +160,12 @@ public class PlayerController : MonoBehaviour {
 
                     // Thử serve cup trước
                     if (heldCup != null) {
-                        success = CupServeValidator.Instance?.TryServeCupToCustomer(heldCup, customer) ?? false;
+                        if (CupServeValidator.Instance != null) {
+                            success = CupServeValidator.Instance.TryServeCupToCustomer(heldCup, customer);
+                        } else {
+                            success = customer.ReceiveDrink(new List<string>(heldCup.Contents));
+                        }
+
                         if (success) {
                             Destroy(heldCup.gameObject);
                             heldCup = null;
@@ -198,30 +195,82 @@ public class PlayerController : MonoBehaviour {
         if (Mouse.current.rightButton.wasPressedThisFrame) {
             TrashFlip();
         }
+        
     }
 
     void FixedUpdate() {
         ApplyMovement();
     }
 
-    private void ReadMovementInput() {
-        if (Keyboard.current == null) {
-            moveInput = Vector2.zero;
+    private void BindMoveAction() {
+        if (moveAction != null) {
             return;
         }
 
-        float horizontal = 0f;
-        float vertical = 0f;
-
-        if (Keyboard.current.aKey.isPressed || Keyboard.current.leftArrowKey.isPressed) horizontal -= 1f;
-        if (Keyboard.current.dKey.isPressed || Keyboard.current.rightArrowKey.isPressed) horizontal += 1f;
-        if (Keyboard.current.sKey.isPressed || Keyboard.current.downArrowKey.isPressed) vertical -= 1f;
-        if (Keyboard.current.wKey.isPressed || Keyboard.current.upArrowKey.isPressed) vertical += 1f;
-
-        moveInput = new Vector2(horizontal, vertical);
-        if (moveInput.sqrMagnitude > 1f) {
-            moveInput.Normalize();
+        if (inputActionsAsset == null) {
+            Debug.LogWarning("PlayerController: Missing InputActionAsset reference.", this);
+            return;
         }
+
+        InputActionMap actionMap = inputActionsAsset.FindActionMap(actionMapName, false);
+        if (actionMap == null) {
+            Debug.LogWarning($"PlayerController: Action map '{actionMapName}' not found.", this);
+            return;
+        }
+
+        moveAction = actionMap.FindAction(moveActionName, false);
+        if (moveAction == null) {
+            Debug.LogWarning($"PlayerController: Move action '{moveActionName}' not found.", this);
+            return;
+        }
+
+        moveAction.performed += Move;
+        moveAction.canceled += Move;
+        actionMap.Enable();
+    }
+
+    private void UnbindMoveAction() {
+        if (moveAction == null) {
+            return;
+        }
+
+        InputActionMap actionMap = moveAction.actionMap;
+        moveAction.performed -= Move;
+        moveAction.canceled -= Move;
+        moveAction = null;
+
+        if (actionMap != null) {
+            actionMap.Disable();
+        }
+
+        moveInput = Vector2.zero;
+        if (animator != null) {
+            animator.SetBool("isWalking", false);
+            animator.SetFloat("InputX", 0f);
+            animator.SetFloat("InputY", 0f);
+        }
+    }
+
+    public void Move(InputAction.CallbackContext context)
+    {
+        Vector2 input = context.ReadValue<Vector2>();
+        bool isWalking = input.sqrMagnitude > 0.0001f;
+
+        if (!isWalking && animator != null)
+        {
+            animator.SetFloat("LastInputX", moveInput.x);
+            animator.SetFloat("LastInputY", moveInput.y);
+        }
+
+        moveInput = input;
+
+        if (animator == null) {
+            return;
+        }
+
+        animator.SetBool("isWalking", isWalking);
+        animator.SetFloat("InputX", moveInput.x);
+        animator.SetFloat("InputY", moveInput.y);
     }
 
     private void ApplyMovement() {
@@ -233,24 +282,6 @@ public class PlayerController : MonoBehaviour {
         }
 
         transform.position += (Vector3)(velocity * Time.fixedDeltaTime);
-    }
-
-    private void UpdateAnimationParameters() {
-        if (characterAnimator == null) {
-            return;
-        }
-
-        bool isMoving = moveInput.sqrMagnitude > 0.0001f;
-        if (isMoving) {
-            lastMoveDirection = moveInput;
-        }
-
-        characterAnimator.SetFloat(moveXHash, moveInput.x);
-        characterAnimator.SetFloat(moveYHash, moveInput.y);
-        characterAnimator.SetFloat(lastMoveXHash, lastMoveDirection.x);
-        characterAnimator.SetFloat(lastMoveYHash, lastMoveDirection.y);
-        characterAnimator.SetFloat(speedHash, moveInput.sqrMagnitude);
-        characterAnimator.SetBool(isMovingHash, isMoving);
     }
 
     private void HandleEInteraction() {
@@ -285,6 +316,14 @@ public class PlayerController : MonoBehaviour {
             }
 
             if (useTapInteraction) {
+                if (TryInteractNearestWorkstation()) {
+                    isHoldingE = false;
+                    attemptedRepair = false;
+                    eHoldTimer = 0f;
+                    repairTarget = null;
+                    return;
+                }
+
                 HandlePickupDrop();
             }
 
@@ -298,7 +337,7 @@ public class PlayerController : MonoBehaviour {
     private void HandlePickupDrop() {
         // Try to pick up cup first
         Cup nearestCup = FindNearestCup();
-        if (nearestCup != null && heldCup == null) {
+        if (nearestCup != null && heldCup == null && heldItem == null) {
             TryPickupCup(nearestCup);
             return;
         }
@@ -412,6 +451,73 @@ public class PlayerController : MonoBehaviour {
         return nearest;
     }
 
+    private Workstation FindNearestWorkstation() {
+        int hitCount = CollectNearbyHits();
+
+        float closestDistance = float.MaxValue;
+        Workstation nearest = null;
+
+        for (int i = 0; i < hitCount; i++) {
+            Workstation ws = nearbyHitsBuffer[i].GetComponentInParent<Workstation>();
+            if (ws == null) {
+                continue;
+            }
+
+            float distance = Vector2.Distance(transform.position, ws.transform.position);
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                nearest = ws;
+            }
+        }
+
+        return nearest;
+    }
+
+    private void TryAutoPickupNearbyCup() {
+        if (heldCup != null || heldItem != null || handAnchor == null) {
+            return;
+        }
+
+        Cup nearestCup = FindNearestCup();
+        if (nearestCup != null) {
+            TryPickupCup(nearestCup);
+        }
+    }
+
+    private bool TryInteractNearestWorkstation() {
+        Workstation target = FindNearestWorkstation();
+        if (target == null) {
+            return false;
+        }
+
+        if (verboseLogs) {
+            Debug.Log("E interaction with workstation: " + target.gameObject.name);
+        }
+
+        target.HandleClick();
+        return true;
+    }
+
+    private void UpdateNearbyWorkstationHint() {
+        nearbyWorkstation = FindNearestWorkstation();
+
+        if (workstationHintText == null) {
+            return;
+        }
+
+        string nextHint = nearbyWorkstation != null
+            ? "E: " + nearbyWorkstation.gameObject.name
+            : string.Empty;
+
+        if (nextHint == lastWorkstationHint) {
+            return;
+        }
+
+        lastWorkstationHint = nextHint;
+        workstationHintText.text = nextHint;
+        workstationHintText.gameObject.SetActive(!string.IsNullOrEmpty(nextHint));
+    }
+
     private int CollectNearbyHits() {
         return Physics2D.OverlapCircle(transform.position, interactionRadius, interactionFilter, nearbyHitsBuffer);
     }
@@ -423,17 +529,10 @@ public class PlayerController : MonoBehaviour {
         interactionFilter.useTriggers = true;
     }
 
-    private void CacheAnimatorHashes() {
-        moveXHash = Animator.StringToHash(moveXParam);
-        moveYHash = Animator.StringToHash(moveYParam);
-        lastMoveXHash = Animator.StringToHash(lastMoveXParam);
-        lastMoveYHash = Animator.StringToHash(lastMoveYParam);
-        speedHash = Animator.StringToHash(speedParam);
-        isMovingHash = Animator.StringToHash(isMovingParam);
-    }
+
 
     void OnValidate() {
-        CacheAnimatorHashes();
+
         ConfigureInteractionFilter();
     }
 
@@ -446,13 +545,17 @@ public class PlayerController : MonoBehaviour {
     /// Try to pick up a cup and attach it to hand
     /// </summary>
     public bool TryPickupCup(Cup cup) {
-        if (cup == null || heldCup != null || handAnchor == null) {
+        if (cup == null || heldCup != null || heldItem != null || handAnchor == null) {
             return false;
         }
 
         heldCup = cup;
         heldCup.AttachToHand(handAnchor);
         return true;
+    }
+
+    public bool HasHeldCup() {
+        return heldCup != null;
     }
 
     /// <summary>
@@ -469,6 +572,14 @@ public class PlayerController : MonoBehaviour {
     /// </summary>
     public Cup GetHeldCup() {
         return heldCup;
+    }
+
+    public bool TryAddIngredientToHeldCup(string ingredient) {
+        if (heldCup == null) {
+            return false;
+        }
+
+        return heldCup.TryAddIngredient(ingredient);
     }
 
     /// <summary>

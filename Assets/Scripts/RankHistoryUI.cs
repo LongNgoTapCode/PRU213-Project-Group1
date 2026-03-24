@@ -12,7 +12,7 @@ public class RankHistoryUI : MonoBehaviour
     }
 
     [FormerlySerializedAs("sortMode")]
-    [SerializeField] SortMode sortBy = SortMode.ByEndTimeNewestFirst;
+    [SerializeField] SortMode sortBy = SortMode.ByScoreDescending;
 
     [SerializeField] string lineFormat = "{0}. Score {1}  |  Play {2}  |  {3}";
     [SerializeField] string emptyMessage = "No play history yet.";
@@ -20,6 +20,7 @@ public class RankHistoryUI : MonoBehaviour
     [SerializeField] RectTransform linesContent;
     [SerializeField] GameObject linePrefab;
     [SerializeField] float rowMinHeight = 36f;
+    [SerializeField] int maxEntries = 10;
 
     public SortMode SortBy
     {
@@ -44,6 +45,10 @@ public class RankHistoryUI : MonoBehaviour
             SortMode.ByEndTimeNewestFirst => LocalScoreStorage.GetRunsSortedByDateDescending(),
             _ => LocalScoreStorage.GetRunsSortedByScoreDescending()
         };
+
+        // Limit to top N entries (default top 10)
+        if (runs.Count > maxEntries)
+            runs = runs.GetRange(0, maxEntries);
 
         if (linesContent != null && linePrefab != null)
             FillScrollLines(linesContent, linePrefab, runs);

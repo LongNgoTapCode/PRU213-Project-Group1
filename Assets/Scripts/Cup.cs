@@ -5,11 +5,16 @@ using UnityEngine;
 public class Cup : MonoBehaviour {
     [SerializeField] private CupData cupData;
     [SerializeField] private SpriteRenderer spriteRenderer;
+    [Header("Product Preview")]
+    [SerializeField] private List<DrinkData> knownRecipes = new List<DrinkData>();
+    [SerializeField] private bool requireExactIngredientOrder = true;
     
     private readonly List<string> contents = new List<string>();
     private Rigidbody2D body;
     private bool isHeld;
     private Transform handAnchor;
+    private Sprite defaultCupSprite;
+    private Color defaultCupColor = Color.white;
 
     public CupData CupData => cupData;
     public IReadOnlyList<string> Contents => contents;
@@ -35,6 +40,13 @@ public class Cup : MonoBehaviour {
             }
             spriteRenderer.color = cupData.cupColor;
         }
+
+        if (spriteRenderer != null) {
+            defaultCupSprite = spriteRenderer.sprite;
+            defaultCupColor = spriteRenderer.color;
+        }
+
+        RefreshVisualByContents();
     }
 
     void Update() {
@@ -50,6 +62,7 @@ public class Cup : MonoBehaviour {
         }
 
         contents.Add(ingredient.Trim());
+        RefreshVisualByContents();
         return true;
     }
 
@@ -83,5 +96,74 @@ public class Cup : MonoBehaviour {
 
     public void Clear() {
         contents.Clear();
+        RefreshVisualByContents();
+    }
+
+    private void RefreshVisualByContents() {
+        if (spriteRenderer == null) {
+            return;
+        }
+
+        DrinkData matchedDrink;
+        if (TryGetMatchedDrink(out matchedDrink) && matchedDrink.icon != null) {
+            spriteRenderer.sprite = matchedDrink.icon;
+            spriteRenderer.color = Color.white;
+            return;
+        }
+
+        spriteRenderer.sprite = defaultCupSprite;
+        spriteRenderer.color = defaultCupColor;
+    }
+
+    private bool TryGetMatchedDrink(out DrinkData matchedDrink) {
+        matchedDrink = null;
+
+        if (knownRecipes == null || knownRecipes.Count == 0 || contents.Count == 0) {
+            return false;
+        }
+
+        for (int i = 0; i < knownRecipes.Count; i++) {
+            DrinkData candidate = knownRecipes[i];
+            if (candidate == null || candidate.ingredients == null) {
+                continue;
+            }
+
+            if (candidate.ingredients.Count != contents.Count) {
+                continue;
+            }
+
+            bool match = requireExactIngredientOrder
+                ? IsExactOrderedMatch(contents, candidate.ingredients)
+                : RecipeMatcher.IsExactMatch(contents, candidate.ingredients);
+
+            if (!match) {
+                continue;
+            }
+
+            matchedDrink = candidate;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsExactOrderedMatch(IReadOnlyList<string> provided, IReadOnlyList<string> required) {
+        if (provided == null || required == null || provided.Count != required.Count) {
+            return false;
+        }
+
+        for (int i = 0; i < provided.Count; i++) {
+            string left = Normalize(provided[i]);
+            string right = Normalize(required[i]);
+            if (!string.Equals(left, right, System.StringComparison.OrdinalIgnoreCase)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private string Normalize(string value) {
+        return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
     }
 }

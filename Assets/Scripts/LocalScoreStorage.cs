@@ -33,6 +33,22 @@ public static class LocalScoreStorage
     }
 
     /// <summary>
+    /// Get highest score from local history. Returns 0 if no runs.
+    /// </summary>
+    public static int GetHighestScore()
+    {
+        var runs = LoadRuns();
+        int highest = 0;
+        for (int i = 0; i < runs.Count; i++)
+        {
+            if (runs[i].score > highest)
+                highest = runs[i].score;
+        }
+
+        return highest;
+    }
+
+    /// <summary>
     /// Save a completed run to history
     /// </summary>
     public static void SaveRun(int finalScore, int timeElapsedSeconds)
@@ -91,8 +107,15 @@ public static class LocalScoreStorage
         if (cachedRuns != null)
             return new List<RunRecord>(cachedRuns);
 
-        string json = PlayerPrefs.GetString(RUNS_PREF_KEY, "[]");
-        var runs = JsonUtility.FromJson<RunRecordList>(json).runs;
+        string json = PlayerPrefs.GetString(RUNS_PREF_KEY, string.Empty);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            cachedRuns = new List<RunRecord>();
+            return new List<RunRecord>(cachedRuns);
+        }
+
+        RunRecordList parsed = JsonUtility.FromJson<RunRecordList>(json);
+        var runs = parsed != null && parsed.runs != null ? parsed.runs : new List<RunRecord>();
         cachedRuns = runs ?? new List<RunRecord>();
         return new List<RunRecord>(cachedRuns);
     }

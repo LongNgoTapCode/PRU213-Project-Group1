@@ -10,6 +10,7 @@ public class CupSpawner : MonoBehaviour {
 
     private float respawnTimer;
     private bool cupTaken;
+    private Cup currentCup;
 
     void Start() {
         if (spawnPoint == null) {
@@ -20,6 +21,12 @@ public class CupSpawner : MonoBehaviour {
     }
 
     void Update() {
+        if (!cupTaken && currentCup != null && currentCup.IsHeld) {
+            cupTaken = true;
+            respawnTimer = respawnDelay;
+            currentCup = null;
+        }
+
         if (cupTaken) {
             respawnTimer -= Time.deltaTime;
             if (respawnTimer <= 0f) {
@@ -34,22 +41,8 @@ public class CupSpawner : MonoBehaviour {
             return;
         }
 
-        Cup cup = Instantiate(cupPrefab, spawnPoint.position, Quaternion.identity);
-        cup.name = "Cup";
+        currentCup = Instantiate(cupPrefab, spawnPoint.position, Quaternion.identity);
+        currentCup.name = "Cup";
         cupTaken = false;
-
-        // Optional: notify that cup is available
-        if (cup.GetComponent<Collider2D>() != null) {
-            cup.GetComponent<Collider2D>().enabled = true;
-        }
-    }
-
-    void OnTriggerEnter2D(Collider2D col) {
-        Cup cup = col.GetComponent<Cup>();
-        if (cup != null) {
-            cup.GetComponent<Collider2D>().enabled = false;
-            cupTaken = true;
-            respawnTimer = respawnDelay;
-        }
     }
 }

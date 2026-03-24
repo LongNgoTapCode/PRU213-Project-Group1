@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c900943958c77cc43a13174bfc53eea9, type: 3}
   m_Name: Ice Coffee
   m_EditorClassIdentifier: Assembly-CSharp::DrinkData
-  drinkName: 
+  drinkName: Ice Coffee
   ingredients:
   - Espresso
   - Espresso
   - Ice
-  basePrice: 0
-  icon: {fileID: 0}
+  basePrice: 20
+  icon: {fileID: -675645279, guid: 60937bb0588b63f47bf47cc1aeff0a05, type: 3}
